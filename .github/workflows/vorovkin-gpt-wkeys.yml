@@ -1,0 +1,23 @@
+name: Deploy with Environment Variables
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          echo "VITE_API_KEY=${{ secrets.API_KEY }}" > .env
+          echo "VITE_API_URL=${{ secrets.API_URL }}" >> .env
+          echo "VITE_API_LAYOUT=${{ secrets.API_LAYOUT }}" >> .env
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build

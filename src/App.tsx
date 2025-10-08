@@ -1,6 +1,6 @@
 import { ReactFlowProvider } from "@xyflow/react";
 
-import { Flow } from "./Flow";
+import { Flow } from "./pages/Flow/Flow";
 import { MakeRequest } from "./make-request";
 
 function App() {

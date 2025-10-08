@@ -19,22 +19,23 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
     return { nodes, edges };
   }
 
+  // Создаем узлы
   apiData.nodes.forEach((item, index) => {
     if (!item["Id узла"] || !item["Тип"] || !item["Название"]) {
       return;
     }
 
-    const isTransformation = item["Тип"].toLowerCase().includes("преобразование");
+    const isTransformation = String(item["Тип"]).toLowerCase().includes("преобразование");
     const nodeType = isTransformation ? "transformation" : "product";
 
     const nodeData: CustomNodeData = {
-      label: item["Название"],
-      description: item["Описание"] || "",
+      label: String(item["Название"]),
+      description: item["Описание"] ? String(item["Описание"]) : "",
       originalData: item,
     };
 
     const node: CustomNode = {
-      id: item["Id узла"],
+      id: String(item["Id узла"]),
       type: nodeType,
       position: { x: 0, y: index * 100 },
       data: nodeData,
@@ -44,57 +45,54 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
     nodes.push(node);
   });
 
+  // Создаем связи
   apiData.nodes.forEach((item) => {
     if (!item["Id узла"]) return;
 
+    const nodeId = String(item["Id узла"]);
+
+    // Входные связи
     if (item["Входы"] && Array.isArray(item["Входы"])) {
       item["Входы"].forEach((inputId, index) => {
-        if (!inputId || typeof inputId !== 'string') {
-          return;
-        }
+        const sourceId = String(inputId);
+        const targetId = nodeId;
 
-        const sourceNodeExists = nodes.some((node) => node.id === inputId);
-        const targetNodeExists = nodes.some((node) => node.id === item["Id узла"]);
+        const sourceExists = nodes.some(n => n.id === sourceId);
+        const targetExists = nodes.some(n => n.id === targetId);
 
-        if (sourceNodeExists && targetNodeExists) {
+        if (sourceExists && targetExists) {
           const edge: CustomEdge = {
-            id: `${inputId}-${item["Id узла"]}-input-${index}`,
-            source: inputId,
-            target: item["Id узла"],
+            id: `${sourceId}-${targetId}-input-${index}`,
+            source: sourceId,
+            target: targetId,
             type: "smoothstep",
             animated: false,
             label: undefined,
-            style: {
-              stroke: "#b1b1b7",
-              strokeWidth: 2,
-            },
+            style: { stroke: "#b1b1b7", strokeWidth: 2 },
           };
           edges.push(edge);
         }
       });
     }
 
+    // Выходные связи
     if (item["Выходы"] && Array.isArray(item["Выходы"])) {
       item["Выходы"].forEach((outputId, index) => {
-        if (!outputId || typeof outputId !== 'string') {
-          return;
-        }
+        const sourceId = nodeId;
+        const targetId = String(outputId);
 
-        const sourceNodeExists = nodes.some((node) => node.id === item["Id узла"]);
-        const targetNodeExists = nodes.some((node) => node.id === outputId);
+        const sourceExists = nodes.some(n => n.id === sourceId);
+        const targetExists = nodes.some(n => n.id === targetId);
 
-        if (sourceNodeExists && targetNodeExists) {
+        if (sourceExists && targetExists) {
           const edge: CustomEdge = {
-            id: `${item["Id узла"]}-${outputId}-output-${index}`,
-            source: item["Id узла"],
-            target: outputId,
+            id: `${sourceId}-${targetId}-output-${index}`,
+            source: sourceId,
+            target: targetId,
             type: "smoothstep",
             animated: false,
             label: undefined,
-            style: {
-              stroke: "#b1b1b7",
-              strokeWidth: 2,
-            },
+            style: { stroke: "#b1b1b7", strokeWidth: 2 },
           };
           edges.push(edge);
         }
@@ -105,7 +103,7 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
   return { nodes, edges };
 }
 
-export function applyLayoutToNodes(
+export function applyLayout(
   nodes: CustomNode[],
   edges: CustomEdge[],
   direction: "TB" | "LR" = "TB"

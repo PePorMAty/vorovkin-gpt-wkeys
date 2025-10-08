@@ -25,9 +25,9 @@ export interface CustomNodeData {
 }
 
 export interface InitialStateI {
-  data: ApiResponse | null;
   loading: boolean;
-  error: boolean | null;
+  data: ApiResponse | null; // Убедитесь, что тип правильный
+  error: boolean;
 }
 
 export type CustomNode = Node<CustomNodeData>;

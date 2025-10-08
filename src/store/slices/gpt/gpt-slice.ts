@@ -6,9 +6,7 @@ import type { ApiResponse, InitialStateI, InputNode } from "../../../types";
 
 const initialState: InitialStateI = {
   loading: false,
-  data: {
-    nodes: [],
-  },
+  data: null,
   error: false,
 };
 

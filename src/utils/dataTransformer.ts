@@ -1,3 +1,4 @@
+// src/utils/dataTransformer.ts
 import dagre from "@dagrejs/dagre";
 import { Position } from "@xyflow/react";
 import {
@@ -7,7 +8,6 @@ import {
   type ApiResponse,
 } from "../types";
 
-// dataTransformer.ts
 export function transformApiDataToFlow(apiData: ApiResponse): {
   nodes: CustomNode[];
   edges: CustomEdge[];
@@ -15,16 +15,16 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
   const nodes: CustomNode[] = [];
   const edges: CustomEdge[] = [];
 
-  console.log(
-    "Начало преобразования данных, всего элементов:",
-    apiData.nodes.length
-  );
+  if (!apiData || !apiData.nodes || !Array.isArray(apiData.nodes)) {
+    return { nodes, edges };
+  }
 
-  // Создаем узлы
   apiData.nodes.forEach((item, index) => {
-    const isTransformation = item["Тип"]
-      .toLowerCase()
-      .includes("преобразование");
+    if (!item["Id узла"] || !item["Тип"] || !item["Название"]) {
+      return;
+    }
+
+    const isTransformation = item["Тип"].toLowerCase().includes("преобразование");
     const nodeType = isTransformation ? "transformation" : "product";
 
     const nodeData: CustomNodeData = {
@@ -38,21 +38,23 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
       type: nodeType,
       position: { x: 0, y: index * 100 },
       data: nodeData,
-      draggable: true, // Разрешаем перетаскивание
+      draggable: true,
     };
 
     nodes.push(node);
   });
 
-  // Создаем связи
   apiData.nodes.forEach((item) => {
-    // Создаем связи для входов
+    if (!item["Id узла"]) return;
+
     if (item["Входы"] && Array.isArray(item["Входы"])) {
       item["Входы"].forEach((inputId, index) => {
+        if (!inputId || typeof inputId !== 'string') {
+          return;
+        }
+
         const sourceNodeExists = nodes.some((node) => node.id === inputId);
-        const targetNodeExists = nodes.some(
-          (node) => node.id === item["Id узла"]
-        );
+        const targetNodeExists = nodes.some((node) => node.id === item["Id узла"]);
 
         if (sourceNodeExists && targetNodeExists) {
           const edge: CustomEdge = {
@@ -72,12 +74,13 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
       });
     }
 
-    // Создаем связи для выходов
     if (item["Выходы"] && Array.isArray(item["Выходы"])) {
       item["Выходы"].forEach((outputId, index) => {
-        const sourceNodeExists = nodes.some(
-          (node) => node.id === item["Id узла"]
-        );
+        if (!outputId || typeof outputId !== 'string') {
+          return;
+        }
+
+        const sourceNodeExists = nodes.some((node) => node.id === item["Id узла"]);
         const targetNodeExists = nodes.some((node) => node.id === outputId);
 
         if (sourceNodeExists && targetNodeExists) {
@@ -99,16 +102,8 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
     }
   });
 
-  console.log(
-    "Преобразование завершено. Узлы:",
-    nodes.length,
-    "Связи:",
-    edges.length
-  );
   return { nodes, edges };
 }
-
-// ... остальной код без изменений ...
 
 export function applyLayoutToNodes(
   nodes: CustomNode[],
@@ -118,16 +113,15 @@ export function applyLayoutToNodes(
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  const nodeWidth = 200; // Увеличиваем ширину для лучшего отображения
-  const nodeHeight = 80; // Увеличиваем высоту
+  const nodeWidth = 200;
+  const nodeHeight = 80;
 
   const isHorizontal = direction === "LR";
 
-  // Улучшаем настройки layout для лучшего расстояния
   dagreGraph.setGraph({
     rankdir: direction,
-    ranksep: 100, // Увеличиваем расстояние между уровнями
-    nodesep: 50, // Увеличиваем расстояние между узлами в одном уровне
+    ranksep: 100,
+    nodesep: 50,
   });
 
   nodes.forEach((node) => {

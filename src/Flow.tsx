@@ -1,4 +1,4 @@
-// Flow.tsx
+// src/Flow.tsx
 import React, { useCallback, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -37,6 +37,8 @@ const nodeTypes: NodeTypes = {
   transformation: TransformationNode,
 };
 
+
+
 const edgeStyles = {
   stroke: "#b1b1b7",
   strokeWidth: 2,
@@ -44,13 +46,14 @@ const edgeStyles = {
 
 export const Flow: React.FC = () => {
   const dispatch = useDispatch();
-  const { data: apiData, loading } = useSelector(
+  const { data: apiData, loading, error } = useSelector(
     (state: RootState) => state.gpt
   );
 
+  const [flowKey, setFlowKey] = useState(0);
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge>([]);
-  const { deleteElements, getNode, fitView } = useReactFlow(); // Убрали getEdges
+  const { deleteElements, getNode, fitView } = useReactFlow();
 
   const [nodeMenu, setNodeMenu] = useState<{
     id: string;
@@ -88,14 +91,10 @@ export const Flow: React.FC = () => {
     description: ''
   });
 
-  // Загрузка и преобразование данных из store
   useEffect(() => {
     if (apiData && apiData.nodes && apiData.nodes.length > 0) {
-      console.log("Обнаружены данные в store, начинаю преобразование...");
-
       try {
-        const { nodes: flowNodes, edges: flowEdges } =
-          transformApiDataToFlow(apiData);
+        const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
 
         const improvedEdges = flowEdges.map((edge) => ({
           ...edge,
@@ -105,28 +104,29 @@ export const Flow: React.FC = () => {
           animated: false,
         }));
 
-        const { nodes: layoutedNodes, edges: layoutedEdges } =
-          applyLayoutToNodes(flowNodes, improvedEdges, "TB");
+        const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayoutToNodes(
+          flowNodes, 
+          improvedEdges, 
+          "TB"
+        );
 
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
+        setFlowKey(prev => prev + 1);
 
-        setTimeout(() => fitView(), 100);
+        setTimeout(() => {
+          fitView({ duration: 800, padding: 0.2 });
+        }, 500);
 
-        console.log("Данные из store успешно загружены в React Flow:", {
-          nodes: layoutedNodes.length,
-          edges: layoutedEdges.length,
-        });
       } catch (error) {
-        console.error("Ошибка преобразования данных из store:", error);
+        // Ошибка обрабатывается автоматически
+        console.log(error)
       }
     }
   }, [apiData, setNodes, setEdges, fitView]);
 
-  // Функция для проверки допустимости связи (исправленная версия)
   const isValidConnection = useCallback(
     (edge: Connection | Edge) => {
-      // Приводим к Connection для единообразия
       const connection = edge as Connection;
       
       if (!connection.source || !connection.target) return false;
@@ -139,8 +139,6 @@ export const Flow: React.FC = () => {
       const sourceType = sourceNode.type;
       const targetType = targetNode.type;
 
-      // Разрешаем связи только: Продукт -> Преобразование и Преобразование -> Продукт
-      // Запрещаем: Продукт -> Продукт и Преобразование -> Преобразование
       return (
         (sourceType === 'product' && targetType === 'transformation') ||
         (sourceType === 'transformation' && targetType === 'product')
@@ -149,12 +147,10 @@ export const Flow: React.FC = () => {
     [getNode]
   );
 
-  // Функция для получения доступного типа узла для добавления
   const getAvailableNodeType = useCallback((nodeType: 'product' | 'transformation'): 'product' | 'transformation' => {
     return nodeType === 'product' ? 'transformation' : 'product';
   }, []);
 
-  // Функция для открытия модалки добавления нового узла
   const handleAddNewNode = useCallback((parentId: string, parentType: 'product' | 'transformation') => {
     const newNodeType = getAvailableNodeType(parentType);
     setNewNodeModal({
@@ -169,29 +165,26 @@ export const Flow: React.FC = () => {
     setNodeMenu(null);
   }, [getAvailableNodeType]);
 
-  // Функция для сохранения нового узла (исправленная версия)
   const handleSaveNewNode = useCallback(() => {
-  if (newNodeModal && newNodeData.label.trim()) {
-    dispatch(addNode({
-      nodeData: {
-        type: newNodeModal.newNodeType,
-        label: newNodeData.label,
-        description: newNodeData.description
-      },
-      parentId: newNodeModal.parentId
-    }));
-    setNewNodeModal(null);
-    setNewNodeData({ label: '', description: '' });
-  }
-}, [newNodeModal, newNodeData, dispatch]);
+    if (newNodeModal && newNodeData.label.trim()) {
+      dispatch(addNode({
+        nodeData: {
+          type: newNodeModal.newNodeType,
+          label: newNodeData.label,
+          description: newNodeData.description
+        },
+        parentId: newNodeModal.parentId
+      }));
+      setNewNodeModal(null);
+      setNewNodeData({ label: '', description: '' });
+    }
+  }, [newNodeModal, newNodeData, dispatch]);
 
-  // Функция для отмены создания нового узла
   const handleCancelNewNode = useCallback(() => {
     setNewNodeModal(null);
     setNewNodeData({ label: '', description: '' });
   }, []);
 
-  // Функция для начала редактирования узла
   const handleEditNode = useCallback((nodeId: string) => {
     const node = getNode(nodeId);
     if (node) {
@@ -208,7 +201,6 @@ export const Flow: React.FC = () => {
     }
   }, [getNode, apiData]);
 
-  // Функция для сохранения изменений узла
   const handleSaveNode = useCallback(() => {
     if (editingNode) {
       dispatch(updateNode({
@@ -222,24 +214,19 @@ export const Flow: React.FC = () => {
     }
   }, [editingNode, dispatch]);
 
-  // Функция для отмены редактирования
   const handleCancelEdit = useCallback(() => {
     setEditingNode(null);
   }, []);
 
-  // Упрощенная функция удаления узла (только выбранный узел)
   const handleDeleteNode = useCallback((nodeId: string) => {
     const nodeToDelete = getNode(nodeId);
     if (!nodeToDelete) return;
 
-    // Находим все связи, связанные с этим узлом
     const connectedEdges = getConnectedEdges([nodeToDelete], edges);
     const edgeIdsToDelete = connectedEdges.map(edge => edge.id);
 
-    // Удаляем из Redux store
     dispatch(deleteNode(nodeId));
     
-    // Удаляем из React Flow
     deleteElements({
       nodes: [{ id: nodeId }],
       edges: edgeIdsToDelete.map(id => ({ id })),
@@ -248,31 +235,25 @@ export const Flow: React.FC = () => {
     setNodeMenu(null);
   }, [edges, deleteElements, getNode, dispatch]);
 
-  // Функция для удаления связи
   const handleDeleteEdge = useCallback((edgeId: string) => {
     const edge = edges.find(e => e.id === edgeId);
     if (edge) {
-      // Удаляем связь из Redux store
       dispatch(removeConnection({
         sourceId: edge.source,
         targetId: edge.target
       }));
       
-      // Удаляем связь из React Flow
       setEdges(eds => eds.filter(e => e.id !== edgeId));
     }
     setEdgeMenu(null);
   }, [edges, setEdges, dispatch]);
 
-  // Обработчик создания связей
   const onConnect = useCallback(
     (params: Connection) => {
       if (!isValidConnection(params)) {
-        console.log('Недопустимая связь');
         return;
       }
 
-      // Добавляем связь в React Flow
       setEdges((eds) =>
         addEdge(
           {
@@ -286,7 +267,6 @@ export const Flow: React.FC = () => {
         )
       );
 
-      // Добавляем связь в Redux store
       if (params.source && params.target) {
         dispatch(addConnection({
           sourceId: params.source,
@@ -297,7 +277,6 @@ export const Flow: React.FC = () => {
     [setEdges, dispatch, isValidConnection]
   );
 
-  // Обработчик клика по связи
   const onEdgeClick = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
       setEdgeMenu({
@@ -307,19 +286,17 @@ export const Flow: React.FC = () => {
         sourceId: edge.source,
         targetId: edge.target,
       });
-      setNodeMenu(null); // Закрываем меню узла если открыто
+      setNodeMenu(null);
     },
     []
   );
 
-  // Обработчик удаления связей через изменения
   const onEdgesChangeCustom = useCallback(
     (changes: EdgeChange[]) => {
       changes.forEach(change => {
         if (change.type === 'remove') {
           const edge = edges.find(e => e.id === change.id);
           if (edge) {
-            // Удаляем связь из Redux store
             dispatch(removeConnection({
               sourceId: edge.source,
               targetId: edge.target
@@ -328,7 +305,6 @@ export const Flow: React.FC = () => {
         }
       });
       
-      // Применяем стандартные изменения
       onEdgesChange(changes);
     },
     [edges, onEdgesChange, dispatch]
@@ -343,7 +319,10 @@ export const Flow: React.FC = () => {
       );
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
-      setTimeout(() => fitView(), 100);
+      
+      setTimeout(() => {
+        fitView({ duration: 800, padding: 0.2 });
+      }, 100);
     },
     [nodes, edges, setNodes, setEdges, fitView]
   );
@@ -362,7 +341,7 @@ export const Flow: React.FC = () => {
         type: originalNode?.["Тип"] || "",
         nodeType: node.type as 'product' | 'transformation'
       });
-      setEdgeMenu(null); // Закрываем меню связи если открыто
+      setEdgeMenu(null);
     },
     [apiData]
   );
@@ -375,9 +354,18 @@ export const Flow: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", flexDirection: "column" }}>
+        <div>Ошибка при загрузке данных</div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: "100%", height: "100vh" }}>
       <ReactFlow
+        key={flowKey}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange as (changes: NodeChange[]) => void}
@@ -400,16 +388,31 @@ export const Flow: React.FC = () => {
           animated: false,
           label: undefined,
         }}
-        // Исправленные пропсы для новой версии React Flow
         elevateEdgesOnSelect={true}
         elevateNodesOnSelect={true}
         selectNodesOnDrag={false}
         connectionMode={ConnectionMode.Loose}
-        deleteKeyCode={null} // Отключаем удаление по клавише Delete
+        deleteKeyCode={null}
         isValidConnection={isValidConnection}
       >
         <Panel position="top-right">
-          
+          <button 
+            onClick={() => {
+              setFlowKey(prev => prev + 1);
+              setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 100);
+            }}
+            style={{
+              background: "#28a745",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              margin: "4px",
+            }}
+          >
+            Обновить вид
+          </button>
           <button 
             onClick={() => onLayout("TB")}
             style={{
@@ -438,15 +441,9 @@ export const Flow: React.FC = () => {
           >
             Горизонтальный layout
           </button>
-          <div style={{ background: 'white', padding: '8px', borderRadius: '4px', fontSize: '12px', float: "left" }}>
-          <div>Узлы: {nodes.length}</div>
-            <div>Связи: {edges.length}</div>
-            <div>API данные: {apiData ? '✓' : '✗'}</div>
-            </div>
         </Panel>
         <Background />
 
-        {/* Меню узла */}
         {nodeMenu && (
           <div
             style={{
@@ -537,7 +534,6 @@ export const Flow: React.FC = () => {
           </div>
         )}
 
-        {/* Меню связи */}
         {edgeMenu && (
           <div
             style={{
@@ -594,7 +590,6 @@ export const Flow: React.FC = () => {
           </div>
         )}
 
-        {/* Модальное окно добавления нового узла */}
         {newNodeModal && (
           <div
             style={{
@@ -700,7 +695,6 @@ export const Flow: React.FC = () => {
           </div>
         )}
 
-        {/* Модальное окно редактирования */}
         {editingNode && (
           <div
             style={{

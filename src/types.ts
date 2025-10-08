@@ -12,14 +12,6 @@ export interface InputNode {
   [key: string]: unknown;
 }
 
-// Добавьте тип для создания нового узла
-export interface NewNodeData {
-  type: 'product' | 'transformation';
-  label: string;
-  description?: string;
-  parentId?: string; // ID родительского узла, если узел создается через связь
-}
-
 export interface ApiResponse {
   nodes: InputNode[];
   has_more?: boolean;
@@ -30,12 +22,6 @@ export interface CustomNodeData {
   description?: string;
   originalData?: unknown;
   [key: string]: unknown;
-}
-
-// Добавьте тип для действия обновления узла
-export interface UpdateNodePayload {
-  nodeId: string;
-  updates: Partial<InputNode>;
 }
 
 export interface InitialStateI {
@@ -50,3 +36,10 @@ export type CustomEdge = Edge;
 // Добавьте типы для пропсов компонентов узлов
 export type ProductNodeProps = NodeProps<CustomNode>;
 export type TransformationNodeProps = NodeProps<CustomNode>;
+
+export interface NewNodeData {
+  type: 'product' | 'transformation';
+  label: string;
+  description?: string;
+  parentId?: string;
+}

@@ -1,5 +1,5 @@
 // src/Flow.tsx
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   Background,
@@ -55,6 +55,9 @@ export const Flow: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge>([]);
   const { deleteElements, getNode, fitView } = useReactFlow();
+  
+  // Используем ref для хранения данных о последней загрузке
+  const lastApiDataRef = useRef<string>('');
 
   const [nodeMenu, setNodeMenu] = useState<{
     id: string;
@@ -92,9 +95,21 @@ export const Flow: React.FC = () => {
     description: ''
   });
 
-  useEffect(() => {
+  // Функция для преобразования и установки данных
+  const transformAndSetData = useCallback(() => {
     if (apiData && apiData.nodes && apiData.nodes.length > 0) {
       try {
+        // Создаем уникальную сигнатуру данных для сравнения
+        const dataSignature = JSON.stringify(apiData.nodes.map(n => n["Id узла"]).sort());
+        
+        // Проверяем, изменились ли данные
+        if (lastApiDataRef.current === dataSignature) {
+          console.log("Данные не изменились, пропускаем преобразование");
+          return;
+        }
+        
+        lastApiDataRef.current = dataSignature;
+
         const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
 
         const improvedEdges = flowEdges.map((edge) => ({
@@ -111,21 +126,46 @@ export const Flow: React.FC = () => {
           "TB"
         );
 
+        // Полностью заменяем узлы и связи
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
+        
+        // Принудительно обновляем ключ
         setFlowKey(prev => prev + 1);
 
+        // Даем время на рендер и затем подгоняем вид
         setTimeout(() => {
           fitView({ duration: 800, padding: 0.2 });
-        }, 500);
+        }, 300);
 
       } catch (error) {
-        // Ошибка обрабатывается автоматически
-        console.log(error)
+        console.error("Ошибка преобразования данных:", error);
       }
     }
   }, [apiData, setNodes, setEdges, fitView]);
 
+  // Основной эффект загрузки данных
+  useEffect(() => {
+    transformAndSetData();
+  }, [transformAndSetData]);
+
+  // Функция для принудительного обновления
+  const handleRefreshView = useCallback(() => {
+    console.log("Принудительное обновление вида");
+    
+    // Сбрасываем ref чтобы гарантировать преобразование
+    lastApiDataRef.current = '';
+    
+    // Вызываем преобразование данных
+    transformAndSetData();
+    
+    // Дополнительный fitView на всякий случай
+    setTimeout(() => {
+      fitView({ duration: 800, padding: 0.2 });
+    }, 100);
+  }, [transformAndSetData, fitView]);
+
+  // Функция для проверки допустимости связи
   const isValidConnection = useCallback(
     (edge: Connection | Edge) => {
       const connection = edge as Connection;
@@ -148,6 +188,7 @@ export const Flow: React.FC = () => {
     [getNode]
   );
 
+  // Остальные функции без изменений...
   const getAvailableNodeType = useCallback((nodeType: 'product' | 'transformation'): 'product' | 'transformation' => {
     return nodeType === 'product' ? 'transformation' : 'product';
   }, []);
@@ -328,43 +369,6 @@ export const Flow: React.FC = () => {
     [nodes, edges, setNodes, setEdges, fitView]
   );
 
-  const handleRefreshView = useCallback(() => {
-  if (apiData && apiData.nodes && apiData.nodes.length > 0) {
-    try {
-      console.log("🔄 Принудительное обновление вида...");
-      
-      const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
-
-      const improvedEdges = flowEdges.map((edge) => ({
-        ...edge,
-        label: undefined,
-        style: edgeStyles,
-        type: "smoothstep",
-        animated: false,
-      }));
-
-      const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayoutToNodes(
-        flowNodes, 
-        improvedEdges, 
-        "TB"
-      );
-
-      setNodes(layoutedNodes);
-      setEdges(layoutedEdges);
-      setFlowKey(prev => prev + 1);
-
-      setTimeout(() => {
-        fitView({ duration: 800, padding: 0.2 });
-      }, 100);
-
-    } catch (error) {
-      console.error("❌ Ошибка при обновлении вида:", error);
-    }
-  } else {
-    console.log("ℹ️ Нет данных для обновления");
-  }
-}, [apiData, setNodes, setEdges, fitView]);
-
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       const nodeData = node.data as CustomNodeData;
@@ -399,6 +403,7 @@ export const Flow: React.FC = () => {
       </div>
     );
   }
+
 
   return (
     <div style={{ width: "100%", height: "100vh" }}>
@@ -823,3 +828,5 @@ export const Flow: React.FC = () => {
     </div>
   );
 };
+
+  

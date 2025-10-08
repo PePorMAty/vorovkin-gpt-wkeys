@@ -15,50 +15,87 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
   const nodes: CustomNode[] = [];
   const edges: CustomEdge[] = [];
 
+  console.log('🔍 transformApiDataToFlow called with:', apiData);
+  
   if (!apiData || !apiData.nodes || !Array.isArray(apiData.nodes)) {
+    console.warn('❌ Invalid API data structure:', apiData);
     return { nodes, edges };
   }
 
-  // Создаем узлы
+  console.log(`📊 Processing ${apiData.nodes.length} nodes from API`);
+
+  // Создаем узлы - ИСПРАВЛЕННАЯ ВЕРСИЯ
   apiData.nodes.forEach((item, index) => {
-    if (!item["Id узла"] || !item["Тип"] || !item["Название"]) {
+    console.log(`🔄 Processing node ${index}:`, item);
+    
+    // ПРОВЕРЯЕМ РАЗНЫЕ ВАРИАНТЫ КЛЮЧЕЙ
+    const nodeId = item["Id узла"] || item.id || `node-${index}`;
+    const nodeType = item["Тип"] || item.type || '';
+    const nodeName = item["Название"] || item.name || `Node ${index}`;
+    const nodeDescription = item["Описание"] || item.description || "";
+    
+    console.log(`📝 Extracted fields:`, { nodeId, nodeType, nodeName, nodeDescription });
+
+    if (!nodeId || !nodeType || !nodeName) {
+      console.warn('❌ Skipping node - missing required fields:', { nodeId, nodeType, nodeName });
       return;
     }
 
-    const isTransformation = String(item["Тип"]).toLowerCase().includes("преобразование");
-    const nodeType = isTransformation ? "transformation" : "product";
+    const isTransformation = String(nodeType).toLowerCase().includes("преобразование");
+    const finalNodeType = isTransformation ? "transformation" : "product";
 
+    console.log(`✅ Creating ${finalNodeType} node:`, nodeName);
+
+    // ГАРАНТИРУЕМ что description будет строкой
     const nodeData: CustomNodeData = {
-      label: String(item["Название"]),
-      description: item["Описание"] ? String(item["Описание"]) : "",
+      label: String(nodeName),
+      description: String(nodeDescription), // Явное преобразование в строку
       originalData: item,
     };
 
     const node: CustomNode = {
-      id: String(item["Id узла"]),
-      type: nodeType,
+      id: String(nodeId),
+      type: finalNodeType,
       position: { x: 0, y: index * 100 },
       data: nodeData,
       draggable: true,
     };
 
     nodes.push(node);
+    console.log(`✅ Added node to array:`, node);
   });
 
-  // Создаем связи
-  apiData.nodes.forEach((item) => {
-    if (!item["Id узла"]) return;
+  console.log(`✅ Created ${nodes.length} flow nodes:`, nodes);
 
-    const nodeId = String(item["Id узла"]);
+  // Создаем связи - ТОЛЬКО ЕСЛИ ЕСТЬ УЗЛЫ
+  if (nodes.length === 0) {
+    console.warn('⚠️ No nodes created, skipping edge creation');
+    return { nodes, edges };
+  }
+
+  apiData.nodes.forEach((item) => {
+    const nodeId = item["Id узла"] || item.id;
+    if (!nodeId) return;
+
+    console.log(`🔗 Processing connections for node: ${nodeId}`);
 
     // Входные связи
-    if (item["Входы"] && Array.isArray(item["Входы"])) {
-      item["Входы"].forEach((inputId, index) => {
+    const inputs = item["Входы"] || item.inputs || [];
+    if (inputs && Array.isArray(inputs)) {
+      console.log(`📥 Inputs for ${nodeId}:`, inputs);
+      
+      inputs.forEach((inputId, index) => {
         const sourceId = String(inputId);
-        const targetId = nodeId;
+        const targetId = String(nodeId);
 
         const sourceExists = nodes.some(n => n.id === sourceId);
         const targetExists = nodes.some(n => n.id === targetId);
+
+        console.log(`🔗 Input connection ${sourceId} -> ${targetId}:`, {
+          sourceExists,
+          targetExists,
+          allNodeIds: nodes.map(n => n.id) // ДЛЯ ОТЛАДКИ
+        });
 
         if (sourceExists && targetExists) {
           const edge: CustomEdge = {
@@ -71,18 +108,30 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
             style: { stroke: "#b1b1b7", strokeWidth: 2 },
           };
           edges.push(edge);
+          console.log(`✅ Created input edge: ${edge.id}`);
+        } else {
+          console.warn(`❌ Skipping input edge - nodes not found: ${sourceId} -> ${targetId}`);
         }
       });
     }
 
     // Выходные связи
-    if (item["Выходы"] && Array.isArray(item["Выходы"])) {
-      item["Выходы"].forEach((outputId, index) => {
-        const sourceId = nodeId;
+    const outputs = item["Выходы"] || item.outputs || [];
+    if (outputs && Array.isArray(outputs)) {
+      console.log(`📤 Outputs for ${nodeId}:`, outputs);
+      
+      outputs.forEach((outputId, index) => {
+        const sourceId = String(nodeId);
         const targetId = String(outputId);
 
         const sourceExists = nodes.some(n => n.id === sourceId);
         const targetExists = nodes.some(n => n.id === targetId);
+
+        console.log(`🔗 Output connection ${sourceId} -> ${targetId}:`, {
+          sourceExists,
+          targetExists,
+          allNodeIds: nodes.map(n => n.id) // ДЛЯ ОТЛАДКИ
+        });
 
         if (sourceExists && targetExists) {
           const edge: CustomEdge = {
@@ -95,13 +144,21 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
             style: { stroke: "#b1b1b7", strokeWidth: 2 },
           };
           edges.push(edge);
+          console.log(`✅ Created output edge: ${edge.id}`);
+        } else {
+          console.warn(`❌ Skipping output edge - nodes not found: ${sourceId} -> ${targetId}`);
         }
       });
     }
   });
 
+  console.log(`🎉 Transformation complete: ${nodes.length} nodes, ${edges.length} edges`);
+  console.log('📋 Final nodes:', nodes.map(n => ({ id: n.id, type: n.type, label: n.data.label })));
+  console.log('🔗 Final edges:', edges.map(e => ({ id: e.id, source: e.source, target: e.target })));
+
   return { nodes, edges };
 }
+
 
 export function applyLayout(
   nodes: CustomNode[],

@@ -1,12 +1,18 @@
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import { EdgeContextMenu } from "../../components/EdgeContextMenu/edge-context-menu";
+import { NodeContextMenu } from "../../components/NodeContextMenu/node-context-menu";
+import { NewNodeModal } from "../../components/NewNodeModal/new-node-modal";
+import { LoadingState } from "../../components/LoadingState/loading-state";
+import { ErrorState } from "../../components/ErrorState/error-state";
+import { DebugPanel } from "../../components/DebugPanel/debug-panel";
+import { EditNodeModal } from "../../components/EditNodeModal/edit-node-modal";
+
+import React, { useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   Background,
   ReactFlow,
   addEdge,
   ConnectionLineType,
-  useNodesState,
-  useEdgesState,
   useReactFlow,
   type Node,
   type Edge,
@@ -20,25 +26,17 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import {
-  applyLayout,
-  transformApiDataToFlow,
-} from "../../utils/dataTransformer";
-import type { CustomNode, CustomEdge, CustomNodeData } from "../../types";
+import type { CustomNodeData } from "../../types";
 import type { RootState } from "../../store/store";
 import { ProductNode } from "../../components/product-node";
 import { TransformationNode } from "../../components/transformation-node";
 import { updateNode, deleteNode, addConnection, removeConnection, addNode } from "../../store/slices/gpt/gpt-slice";
 
-import { DebugPanel } from "../../components/DebugPanel/debug-panel";
+// Импорт хука
+import { useFlowData } from "../../hooks/useFlowData";
 import { ControlPanel } from "../../components/ControlPanel/control-panel";
-import { NodeContextMenu } from "../../components/NodeContextMenu/node-context-menu";
-import { EdgeContextMenu } from "../../components/EdgeContextMenu/edge-context-menu";
-import { NewNodeModal } from "../../components/NewNodeModal/new-node-modal";
-import { EditNodeModal } from "../../components/EditNodeModal/edit-node-modal";
-import { LoadingState } from "../../components/LoadingState/loading-state";
-import { ErrorState } from "../../components/ErrorState/error-state";
 
+// Импорт компонентов UI
 const nodeTypes: NodeTypes = {
   product: ProductNode,
   transformation: TransformationNode,
@@ -55,16 +53,24 @@ export const Flow: React.FC = () => {
     (state: RootState) => state.gpt
   );
 
-  const [flowKey, setFlowKey] = useState(0);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge>([]);
-  const { deleteElements, getNode, fitView } = useReactFlow();
+  const { deleteElements, getNode } = useReactFlow();
   
-  const dataProcessedRef = useRef(false);
-  const initialLoadRef = useRef(true);
+  // ИСПОЛЬЗУЕМ ХУК useFlowData вместо локальных состояний
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    setEdges,
+    handleRefreshView,
+    applyFlowLayout,
+    dataProcessed,
+    initialLoad,
+    flowKey,
+  } = useFlowData(apiData);
 
   // Состояния для модальных окон и контекстных меню
-  const [nodeMenu, setNodeMenu] = useState<{
+  const [nodeMenu, setNodeMenu] = React.useState<{
     id: string;
     top: number;
     left: number;
@@ -74,7 +80,7 @@ export const Flow: React.FC = () => {
     nodeType: 'product' | 'transformation';
   } | null>(null);
 
-  const [edgeMenu, setEdgeMenu] = useState<{
+  const [edgeMenu, setEdgeMenu] = React.useState<{
     id: string;
     top: number;
     left: number;
@@ -82,120 +88,24 @@ export const Flow: React.FC = () => {
     targetId: string;
   } | null>(null);
 
-  const [editingNode, setEditingNode] = useState<{
+  const [editingNode, setEditingNode] = React.useState<{
     id: string;
     label: string;
     description: string;
     type: string;
   } | null>(null);
 
-  const [newNodeModal, setNewNodeModal] = useState<{
+  const [newNodeModal, setNewNodeModal] = React.useState<{
     parentId: string;
     parentType: 'product' | 'transformation';
     newNodeType: 'product' | 'transformation';
   } | null>(null);
 
-  const [newNodeData, setNewNodeData] = useState({
+  const [newNodeData, setNewNodeData] = React.useState({
     label: '',
     description: ''
   });
 
-  // Функция для обработки данных и установки в React Flow
-  const processData = useCallback(() => {
-    if (!apiData?.nodes || apiData.nodes.length === 0) {
-      console.log('No data to process');
-      return false;
-    }
-
-    try {
-      console.log('Processing API data:', apiData);
-      
-      const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
-
-      const improvedEdges = flowEdges.map((edge) => ({
-        ...edge,
-        label: undefined,
-        style: edgeStyles,
-        type: "smoothstep",
-        animated: false,
-      }));
-
-      const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(
-        flowNodes, 
-        improvedEdges, 
-        "TB"
-      );
-
-      console.log('Setting nodes and edges:', layoutedNodes.length, layoutedEdges.length);
-      
-      setNodes(layoutedNodes);
-      setEdges(layoutedEdges);
-      
-      dataProcessedRef.current = true;
-      initialLoadRef.current = false;
-
-      // Несколько попыток fitView с задержками
-      setTimeout(() => {
-        fitView({ duration: 800, padding: 0.2 });
-      }, 100);
-
-      setTimeout(() => {
-        fitView({ duration: 800, padding: 0.2 });
-      }, 500);
-
-      return true;
-    } catch (error) {
-      console.error('Error processing data:', error);
-      dataProcessedRef.current = false;
-      return false;
-    }
-  }, [apiData, setNodes, setEdges, fitView]);
-
-  // Основной эффект загрузки данных - УПРОЩЕННАЯ ВЕРСИЯ
-  useEffect(() => {
-    console.log('API Data changed:', apiData);
-    
-    if (apiData?.nodes && apiData.nodes.length > 0) {
-      console.log('Data available, processing...');
-      processData();
-    } else {
-      console.log('No data or empty data');
-      // Сбросить состояние если данных нет
-      setNodes([]);
-      setEdges([]);
-      dataProcessedRef.current = false;
-    }
-  }, [apiData, processData, setNodes, setEdges]);
-
-  // Функция для принудительного обновления
-  const handleRefreshView = useCallback(() => {
-    console.log('Manual refresh triggered');
-    
-    // Сбрасываем флаги
-    dataProcessedRef.current = false;
-    initialLoadRef.current = true;
-    
-    // Принудительно обновляем ключ
-    setFlowKey(prev => prev + 1);
-    
-    // Перезагружаем данные
-    const success = processData();
-    
-    if (!success && apiData?.nodes && apiData.nodes.length > 0) {
-      // Если processData не сработал, но данные есть - принудительно установим
-      const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
-      setNodes(flowNodes);
-      setEdges(flowEdges);
-      
-      setTimeout(() => {
-        fitView({ duration: 800, padding: 0.2 });
-      }, 100);
-    }
-    
-    return success;
-  }, [apiData, processData, setNodes, setEdges, fitView]);
-
-  // Остальные функции остаются без изменений...
   const isValidConnection = useCallback(
     (edge: Connection | Edge) => {
       const connection = edge as Connection;
@@ -415,8 +325,8 @@ export const Flow: React.FC = () => {
         edges={edges}
         apiData={apiData}
         flowKey={flowKey}
-        dataProcessed={dataProcessedRef.current}
-        initialLoad={initialLoadRef.current}
+        dataProcessed={dataProcessed}
+        initialLoad={initialLoad}
       />
 
       <ReactFlow
@@ -452,22 +362,11 @@ export const Flow: React.FC = () => {
       >
         <ControlPanel 
           onRefreshView={handleRefreshView}
-          onVerticalLayout={() => {
-            const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(nodes, edges, "TB");
-            setNodes(layoutedNodes);
-            setEdges(layoutedEdges);
-            setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 100);
-          }}
-          onHorizontalLayout={() => {
-            const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayout(nodes, edges, "LR");
-            setNodes(layoutedNodes);
-            setEdges(layoutedEdges);
-            setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 100);
-          }}
+          onVerticalLayout={() => applyFlowLayout("TB")}
+          onHorizontalLayout={() => applyFlowLayout("LR")}
         />
         <Background />
 
-        {/* Модальные окна и контекстные меню */}
         {nodeMenu && (
           <NodeContextMenu
             nodeMenu={nodeMenu}

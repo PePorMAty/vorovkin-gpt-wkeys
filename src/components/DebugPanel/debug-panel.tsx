@@ -1,7 +1,6 @@
 import React from 'react';
 import { Panel } from '@xyflow/react';
-import type { ApiResponse } from '../../types';
-import type { CustomNode, CustomEdge } from '../../types';
+import type { CustomNode, CustomEdge,ApiResponse } from '../../types';
 
 interface DebugPanelProps {
   nodes: CustomNode[];

@@ -4,37 +4,37 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Create .env file
         run: |
           echo "VITE_API_KEY=${{ secrets.API_KEY }}" > .env
           echo "VITE_API_URL=${{ secrets.API_URL }}" >> .env
           echo "VITE_API_LAYOUT=${{ secrets.API_LAYOUT }}" >> .env
-
       - name: Install dependencies
         run: npm i
-
       - name: Build project
         run: npm run build
-
-      - name: Setup Git config
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

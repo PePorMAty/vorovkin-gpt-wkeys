@@ -22,6 +22,7 @@ export const MakeRequest = () => {
     <div>
       <input type="text" value={value} onChange={(e) => handleOnChange(e)} />
       <button onClick={handleOnClick}>Сгенерировать</button>
+      
     </div>
   );
 };

@@ -39,6 +39,7 @@ const nodeTypes: NodeTypes = {
 
 
 
+
 const edgeStyles = {
   stroke: "#b1b1b7",
   strokeWidth: 2,
@@ -327,6 +328,43 @@ export const Flow: React.FC = () => {
     [nodes, edges, setNodes, setEdges, fitView]
   );
 
+  const handleRefreshView = useCallback(() => {
+  if (apiData && apiData.nodes && apiData.nodes.length > 0) {
+    try {
+      console.log("🔄 Принудительное обновление вида...");
+      
+      const { nodes: flowNodes, edges: flowEdges } = transformApiDataToFlow(apiData);
+
+      const improvedEdges = flowEdges.map((edge) => ({
+        ...edge,
+        label: undefined,
+        style: edgeStyles,
+        type: "smoothstep",
+        animated: false,
+      }));
+
+      const { nodes: layoutedNodes, edges: layoutedEdges } = applyLayoutToNodes(
+        flowNodes, 
+        improvedEdges, 
+        "TB"
+      );
+
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+      setFlowKey(prev => prev + 1);
+
+      setTimeout(() => {
+        fitView({ duration: 800, padding: 0.2 });
+      }, 100);
+
+    } catch (error) {
+      console.error("❌ Ошибка при обновлении вида:", error);
+    }
+  } else {
+    console.log("ℹ️ Нет данных для обновления");
+  }
+}, [apiData, setNodes, setEdges, fitView]);
+
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       const nodeData = node.data as CustomNodeData;
@@ -397,22 +435,19 @@ export const Flow: React.FC = () => {
       >
         <Panel position="top-right">
           <button 
-            onClick={() => {
-              setFlowKey(prev => prev + 1);
-              setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 100);
-            }}
-            style={{
-              background: "#28a745",
-              color: "white",
-              border: "none",
-              padding: "8px 16px",
-              borderRadius: "4px",
-              cursor: "pointer",
-              margin: "4px",
-            }}
-          >
-            Обновить вид
-          </button>
+    onClick={handleRefreshView}
+    style={{
+      background: "#28a745",
+      color: "white",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: "4px",
+      cursor: "pointer",
+      margin: "4px",
+    }}
+  >
+    Обновить вид
+  </button>
           <button 
             onClick={() => onLayout("TB")}
             style={{

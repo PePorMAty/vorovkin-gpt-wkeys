@@ -30,7 +30,13 @@ import type { CustomNodeData } from "../../types";
 import type { RootState } from "../../store/store";
 import { ProductNode } from "../../components/product-node";
 import { TransformationNode } from "../../components/transformation-node";
-import { updateNode, deleteNode, addConnection, removeConnection, addNode } from "../../store/slices/gpt/gpt-slice";
+import {
+  updateNode,
+  deleteNode,
+  addConnection,
+  removeConnection,
+  addNode,
+} from "../../store/slices/gpt/gpt-slice";
 
 // Импорт хука
 import { useFlowData } from "../../hooks/useFlowData";
@@ -49,12 +55,14 @@ const edgeStyles = {
 
 export const Flow: React.FC = () => {
   const dispatch = useDispatch();
-  const { data: apiData, loading, error } = useSelector(
-    (state: RootState) => state.gpt
-  );
+  const {
+    data: apiData,
+    loading,
+    error,
+  } = useSelector((state: RootState) => state.gpt);
 
   const { deleteElements, getNode } = useReactFlow();
-  
+
   // ИСПОЛЬЗУЕМ ХУК useFlowData вместо локальных состояний
   const {
     nodes,
@@ -77,7 +85,7 @@ export const Flow: React.FC = () => {
     label: string;
     description?: string;
     type: string;
-    nodeType: 'product' | 'transformation';
+    nodeType: "product" | "transformation";
   } | null>(null);
 
   const [edgeMenu, setEdgeMenu] = React.useState<{
@@ -97,19 +105,19 @@ export const Flow: React.FC = () => {
 
   const [newNodeModal, setNewNodeModal] = React.useState<{
     parentId: string;
-    parentType: 'product' | 'transformation';
-    newNodeType: 'product' | 'transformation';
+    parentType: "product" | "transformation";
+    newNodeType: "product" | "transformation";
   } | null>(null);
 
   const [newNodeData, setNewNodeData] = React.useState({
-    label: '',
-    description: ''
+    label: "",
+    description: "",
   });
 
   const isValidConnection = useCallback(
     (edge: Connection | Edge) => {
       const connection = edge as Connection;
-      
+
       if (!connection.source || !connection.target) return false;
 
       const sourceNode = getNode(connection.source);
@@ -121,76 +129,91 @@ export const Flow: React.FC = () => {
       const targetType = targetNode.type;
 
       return (
-        (sourceType === 'product' && targetType === 'transformation') ||
-        (sourceType === 'transformation' && targetType === 'product')
+        (sourceType === "product" && targetType === "transformation") ||
+        (sourceType === "transformation" && targetType === "product")
       );
     },
     [getNode]
   );
 
-  const getAvailableNodeType = useCallback((nodeType: 'product' | 'transformation'): 'product' | 'transformation' => {
-    return nodeType === 'product' ? 'transformation' : 'product';
-  }, []);
+  const getAvailableNodeType = useCallback(
+    (nodeType: "product" | "transformation"): "product" | "transformation" => {
+      return nodeType === "product" ? "transformation" : "product";
+    },
+    []
+  );
 
-  const handleAddNewNode = useCallback((parentId: string, parentType: 'product' | 'transformation') => {
-    const newNodeType = getAvailableNodeType(parentType);
-    setNewNodeModal({
-      parentId,
-      parentType,
-      newNodeType
-    });
-    setNewNodeData({
-      label: '',
-      description: ''
-    });
-    setNodeMenu(null);
-  }, [getAvailableNodeType]);
+  const handleAddNewNode = useCallback(
+    (parentId: string, parentType: "product" | "transformation") => {
+      const newNodeType = getAvailableNodeType(parentType);
+      setNewNodeModal({
+        parentId,
+        parentType,
+        newNodeType,
+      });
+      setNewNodeData({
+        label: "",
+        description: "",
+      });
+      setNodeMenu(null);
+    },
+    [getAvailableNodeType]
+  );
 
   const handleSaveNewNode = useCallback(() => {
     if (newNodeModal && newNodeData.label.trim()) {
-      dispatch(addNode({
-        nodeData: {
-          type: newNodeModal.newNodeType,
-          label: newNodeData.label,
-          description: newNodeData.description
-        },
-        parentId: newNodeModal.parentId
-      }));
+      dispatch(
+        addNode({
+          nodeData: {
+            type: newNodeModal.newNodeType,
+            label: newNodeData.label,
+            description: newNodeData.description,
+          },
+          parentId: newNodeModal.parentId,
+        })
+      );
       setNewNodeModal(null);
-      setNewNodeData({ label: '', description: '' });
+      setNewNodeData({ label: "", description: "" });
     }
   }, [newNodeModal, newNodeData, dispatch]);
 
   const handleCancelNewNode = useCallback(() => {
     setNewNodeModal(null);
-    setNewNodeData({ label: '', description: '' });
+    setNewNodeData({ label: "", description: "" });
   }, []);
 
-  const handleEditNode = useCallback((nodeId: string) => {
-    const node = getNode(nodeId);
-    if (node) {
-      const nodeData = node.data as CustomNodeData;
-      const originalNode = apiData?.nodes?.find(n => n["Id узла"] === nodeId);
-      
-      setEditingNode({
-        id: nodeId,
-        label: nodeData.label,
-        description: nodeData.description || "",
-        type: originalNode?.["Тип"] || ""
-      });
-      setNodeMenu(null);
-    }
-  }, [getNode, apiData]);
+  const handleEditNode = useCallback(
+    (nodeId: string) => {
+      const node = getNode(nodeId);
+      if (node) {
+        const nodeData = node.data as CustomNodeData;
+        const originalNode = apiData?.nodes?.find(
+          (n) => n["Id узла"] === nodeId
+        );
+
+        setEditingNode({
+          id: nodeId,
+          label: nodeData.label,
+          description: nodeData.description || "",
+          type: originalNode?.["Тип"] || "",
+        });
+        setNodeMenu(null);
+      }
+    },
+    [getNode, apiData]
+  );
 
   const handleSaveNode = useCallback(() => {
     if (editingNode) {
-      dispatch(updateNode({
-        nodeId: editingNode.id,
-        updates: {
-          "Название": editingNode.label,
-          "Описание": editingNode.description
-        }
-      }));
+      dispatch(
+        updateNode({
+          nodeId: editingNode.id,
+          updates: {
+            Название: editingNode.label,
+            Описание: editingNode.description,
+          },
+        })
+      );
       setEditingNode(null);
     }
   }, [editingNode, dispatch]);
@@ -199,35 +222,43 @@ export const Flow: React.FC = () => {
     setEditingNode(null);
   }, []);
 
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    const nodeToDelete = getNode(nodeId);
-    if (!nodeToDelete) return;
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      const nodeToDelete = getNode(nodeId);
+      if (!nodeToDelete) return;
 
-    const connectedEdges = getConnectedEdges([nodeToDelete], edges);
-    const edgeIdsToDelete = connectedEdges.map(edge => edge.id);
+      const connectedEdges = getConnectedEdges([nodeToDelete], edges);
+      const edgeIdsToDelete = connectedEdges.map((edge) => edge.id);
 
-    dispatch(deleteNode(nodeId));
-    
-    deleteElements({
-      nodes: [{ id: nodeId }],
-      edges: edgeIdsToDelete.map(id => ({ id })),
-    });
-    
-    setNodeMenu(null);
-  }, [edges, deleteElements, getNode, dispatch]);
+      dispatch(deleteNode(nodeId));
 
-  const handleDeleteEdge = useCallback((edgeId: string) => {
-    const edge = edges.find(e => e.id === edgeId);
-    if (edge) {
-      dispatch(removeConnection({
-        sourceId: edge.source,
-        targetId: edge.target
-      }));
-      
-      setEdges(eds => eds.filter(e => e.id !== edgeId));
-    }
-    setEdgeMenu(null);
-  }, [edges, setEdges, dispatch]);
+      deleteElements({
+        nodes: [{ id: nodeId }],
+        edges: edgeIdsToDelete.map((id) => ({ id })),
+      });
+
+      setNodeMenu(null);
+    },
+    [edges, deleteElements, getNode, dispatch]
+  );
+
+  const handleDeleteEdge = useCallback(
+    (edgeId: string) => {
+      const edge = edges.find((e) => e.id === edgeId);
+      if (edge) {
+        dispatch(
+          removeConnection({
+            sourceId: edge.source,
+            targetId: edge.target,
+          })
+        );
+
+        setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      }
+      setEdgeMenu(null);
+    },
+    [edges, setEdges, dispatch]
+  );
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -249,43 +280,44 @@ export const Flow: React.FC = () => {
       );
 
       if (params.source && params.target) {
-        dispatch(addConnection({
-          sourceId: params.source,
-          targetId: params.target
-        }));
+        dispatch(
+          addConnection({
+            sourceId: params.source,
+            targetId: params.target,
+          })
+        );
       }
     },
     [setEdges, dispatch, isValidConnection]
   );
 
-  const onEdgeClick = useCallback(
-    (event: React.MouseEvent, edge: Edge) => {
-      setEdgeMenu({
-        id: edge.id,
-        top: event.clientY + 10,
-        left: event.clientX + 10,
-        sourceId: edge.source,
-        targetId: edge.target,
-      });
-      setNodeMenu(null);
-    },
-    []
-  );
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    setEdgeMenu({
+      id: edge.id,
+      top: event.clientY + 10,
+      left: event.clientX + 10,
+      sourceId: edge.source,
+      targetId: edge.target,
+    });
+    setNodeMenu(null);
+  }, []);
 
   const onEdgesChangeCustom = useCallback(
     (changes: EdgeChange[]) => {
-      changes.forEach(change => {
-        if (change.type === 'remove') {
-          const edge = edges.find(e => e.id === change.id);
+      changes.forEach((change) => {
+        if (change.type === "remove") {
+          const edge = edges.find((e) => e.id === change.id);
           if (edge) {
-            dispatch(removeConnection({
-              sourceId: edge.source,
-              targetId: edge.target
-            }));
+            dispatch(
+              removeConnection({
+                sourceId: edge.source,
+                targetId: edge.target,
+              })
+            );
           }
         }
       });
-      
+
       onEdgesChange(changes);
     },
     [edges, onEdgesChange, dispatch]
@@ -294,7 +326,9 @@ export const Flow: React.FC = () => {
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       const nodeData = node.data as CustomNodeData;
-      const originalNode = apiData?.nodes?.find(n => n["Id узла"] === node.id);
+      const originalNode = apiData?.nodes?.find(
+        (n) => n["Id узла"] === node.id
+      );
 
       setNodeMenu({
         id: node.id,
@@ -303,7 +337,7 @@ export const Flow: React.FC = () => {
         label: nodeData.label,
         description: nodeData.description,
         type: originalNode?.["Тип"] || "",
-        nodeType: node.type as 'product' | 'transformation'
+        nodeType: node.type as "product" | "transformation",
       });
       setEdgeMenu(null);
     },
@@ -320,7 +354,7 @@ export const Flow: React.FC = () => {
 
   return (
     <div style={{ width: "100%", height: "100vh" }}>
-      <DebugPanel 
+      <DebugPanel
         nodes={nodes}
         edges={edges}
         apiData={apiData}
@@ -360,7 +394,7 @@ export const Flow: React.FC = () => {
         deleteKeyCode={null}
         isValidConnection={isValidConnection}
       >
-        <ControlPanel 
+        <ControlPanel
           onRefreshView={handleRefreshView}
           onVerticalLayout={() => applyFlowLayout("TB")}
           onHorizontalLayout={() => applyFlowLayout("LR")}

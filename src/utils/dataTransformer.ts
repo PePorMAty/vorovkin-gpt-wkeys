@@ -4,156 +4,139 @@ import { Position } from "@xyflow/react";
 import {
   type CustomNode,
   type CustomEdge,
-  type CustomNodeData,
   type ApiResponse,
   type InputNode,
 } from "../types";
 
+// src/utils/dataTransformer.ts
 export function transformApiDataToFlow(apiData: ApiResponse): {
   nodes: CustomNode[];
   edges: CustomEdge[];
 } {
   const nodes: CustomNode[] = [];
   const edges: CustomEdge[] = [];
+  const nodeIdMap = new Map();
 
-  console.log("🔍 transformApiDataToFlow called with:", apiData);
+  console.log("🔄 Starting data transformation with:", apiData);
 
   if (!apiData?.nodes || !Array.isArray(apiData.nodes)) {
     console.warn("❌ Invalid API data structure");
     return { nodes, edges };
   }
 
-  console.log(`📊 Processing ${apiData.nodes.length} nodes from API`);
-
-  // Создаем lookup map для быстрого поиска узлов по ID
-  const nodeIdMap = new Map<string, boolean>();
-
-  // Создаем узлы
-  apiData.nodes.forEach((item: InputNode, index: number) => {
-    // Используем разные варианты ключей для большей надежности
-    const nodeId = item["Id узла"] || item.id || `node-${index}`;
-    const nodeType = item["Тип"] || item.type || "";
-    const nodeName =
-      item["Название"] || item.name || item.label || `Node ${index}`;
-    const nodeDescription = item["Описание"] || item.description || "";
-
-    console.log(`📝 Node ${index}:`, { nodeId, nodeType, nodeName });
+  // Step 1: Create all nodes first
+  apiData.nodes.forEach((item, index) => {
+    // Use both possible ID field names
+    const nodeId = item["Id узла"] || item.Id;
+    const nodeType = item["Тип"] || item.type;
+    const nodeName = item["Название"] || item.name;
 
     if (!nodeId) {
-      console.warn("❌ Skipping node - missing node ID");
+      console.warn(`❌ Skipping node at index ${index} - missing ID`);
       return;
     }
 
-    // Определяем тип узла для React Flow
+    // Determine node type for React Flow
     const flowNodeType = String(nodeType)
       .toLowerCase()
       .includes("преобразование")
       ? "transformation"
       : "product";
 
-    const nodeData: CustomNodeData = {
+    const nodeData = {
       label: String(nodeName),
-      description: String(nodeDescription),
+      description: String(item["Описание"] || item.description || ""),
       originalData: item,
     };
 
-    const node: CustomNode = {
+    const node = {
       id: String(nodeId),
       type: flowNodeType,
-      position: { x: 0, y: index * 100 },
+      position: { x: 0, y: index * 100 }, // Temporary position
       data: nodeData,
       draggable: true,
     };
 
     nodes.push(node);
     nodeIdMap.set(String(nodeId), true);
+
+    console.log(`✅ Created node: ${nodeId} (${flowNodeType})`);
   });
 
-  console.log(`✅ Created ${nodes.length} flow nodes`);
-  console.log("📋 Node IDs:", Array.from(nodeIdMap.keys()));
+  console.log(`📊 Created ${nodes.length} nodes`);
 
-  // Создаем связи - УЛУЧШЕННАЯ ВЕРСИЯ
+  // Step 2: Create edges based on Входы and Выходы
   let edgesCreated = 0;
 
-  apiData.nodes.forEach((item: InputNode) => {
-    const nodeId = item["Id узла"] || item.id;
+  apiData.nodes.forEach((item) => {
+    const nodeId = item["Id узла"] || item.Id;
     if (!nodeId) return;
 
-    // Получаем входы и выходы разными способами
-    const inputs = item["Входы"] || item.inputs || item.Входы || [];
-    const outputs = item["Выходы"] || item.outputs || item.Выходы || [];
+    const inputs = item["Входы"] || item.inputs || [];
+    const outputs = item["Выходы"] || item.outputs || [];
 
-    console.log(`🔗 Node ${nodeId}:`, { inputs, outputs });
+    console.log(`🔗 Processing connections for node ${nodeId}:`, {
+      inputs,
+      outputs,
+    });
 
-    // Обрабатываем входные связи (другие узлы -> этот узел)
+    // Create edges from inputs (other nodes → this node)
     if (Array.isArray(inputs)) {
-      inputs.forEach((inputId: string | number, index: number) => {
+      inputs.forEach((inputId, index) => {
         const sourceId = String(inputId);
         const targetId = String(nodeId);
 
-        const sourceExists = nodeIdMap.has(sourceId);
-        const targetExists = nodeIdMap.has(targetId);
-
-        if (sourceExists && targetExists) {
-          const edge: CustomEdge = {
-            id: `edge-${sourceId}-${targetId}-input-${index}-${Date.now()}`,
-            source: sourceId,
-            target: targetId,
-            type: "smoothstep",
-            animated: false,
-            style: { stroke: "#b1b1b7", strokeWidth: 2 },
-          };
-
-          // Проверяем, нет ли уже такой связи
-          const edgeExists = edges.some(
-            (e) => e.source === sourceId && e.target === targetId
-          );
-
+        if (nodeIdMap.has(sourceId) && nodeIdMap.has(targetId)) {
+          const edgeId = `edge-${sourceId}-${targetId}-input-${index}`;
+          // Check if edge already exists
+          const edgeExists = edges.some((e) => e.id === edgeId);
           if (!edgeExists) {
+            const edge = {
+              id: edgeId,
+              source: sourceId,
+              target: targetId,
+              type: "smoothstep",
+              animated: false,
+              style: { stroke: "#b1b1b7", strokeWidth: 2 },
+            };
             edges.push(edge);
             edgesCreated++;
-            console.log(`✅ Created input edge: ${sourceId} -> ${targetId}`);
+            console.log(`✅ Created input edge: ${sourceId} → ${targetId}`);
           }
         } else {
           console.warn(
-            `❌ Skipping input edge - nodes not found: ${sourceId} -> ${targetId}`
+            `❌ Cannot create input edge: ${sourceId} → ${targetId} (nodes not found)`
           );
         }
       });
     }
 
-    // Обрабатываем выходные связи (этот узел -> другие узлы)
+    // Create edges from outputs (this node → other nodes)
     if (Array.isArray(outputs)) {
-      outputs.forEach((outputId: string | number, index: number) => {
+      outputs.forEach((outputId, index) => {
         const sourceId = String(nodeId);
         const targetId = String(outputId);
 
-        const sourceExists = nodeIdMap.has(sourceId);
-        const targetExists = nodeIdMap.has(targetId);
-
-        if (sourceExists && targetExists) {
-          const edge: CustomEdge = {
-            id: `edge-${sourceId}-${targetId}-output-${index}-${Date.now()}`,
-            source: sourceId,
-            target: targetId,
-            type: "smoothstep",
-            animated: false,
-            style: { stroke: "#b1b1b7", strokeWidth: 2 },
-          };
-
-          // Проверяем, нет ли уже такой связи
-          const edgeExists = edges.some(
-            (e) => e.source === sourceId && e.target === targetId
-          );
-
+        if (nodeIdMap.has(sourceId) && nodeIdMap.has(targetId)) {
+          const edgeId = `edge-${sourceId}-${targetId}-output-${index}`;
+          // Check if edge already exists
+          const edgeExists = edges.some((e) => e.id === edgeId);
           if (!edgeExists) {
+            const edge = {
+              id: edgeId,
+              source: sourceId,
+              target: targetId,
+              type: "smoothstep",
+              animated: false,
+              style: { stroke: "#b1b1b7", strokeWidth: 2 },
+            };
             edges.push(edge);
             edgesCreated++;
-            console.log(`✅ Created output edge: ${sourceId} -> ${targetId}`);
+            console.log(`✅ Created output edge: ${sourceId} → ${targetId}`);
           }
         } else {
           console.warn(
-            `❌ Skipping output edge - nodes not found: ${sourceId} -> ${targetId}`
+            `❌ Cannot create output edge: ${sourceId} → ${targetId} (nodes not found)`
           );
         }
       });
@@ -161,11 +144,17 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
   });
 
   console.log(
-    `🎉 Transformation complete: ${nodes.length} nodes, ${edgesCreated} edges created`
+    `🎉 Transformation complete: ${nodes.length} nodes, ${edgesCreated} edges`
   );
+
+  // Log summary of created edges for debugging
   console.log(
-    "🔗 Final edges:",
-    edges.map((e) => ({ id: e.id, source: e.source, target: e.target }))
+    "📋 Created edges:",
+    edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+    }))
   );
 
   return { nodes, edges };

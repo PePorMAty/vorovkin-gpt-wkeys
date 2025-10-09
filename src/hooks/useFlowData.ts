@@ -89,7 +89,7 @@ export const useFlowData = (apiData?: ApiResponse | null) => {
         });
       }
 
-      const improvedEdges = flowData.edges.map((edge) => ({
+      const improvedEdges = flowData.edges.map((edge: CustomEdge) => ({
         ...edge,
         label: undefined,
         style: edgeStyles,

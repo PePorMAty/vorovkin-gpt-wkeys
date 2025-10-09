@@ -1,5 +1,9 @@
 // src/store/slices/gpt/gpt-slice.ts
-import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createAsyncThunk,
+  createSlice,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 import axios from "axios";
 import { configFile } from "../../../utils/config";
 import type { ApiResponse, InitialStateI, InputNode } from "../../../types";
@@ -11,7 +15,8 @@ const initialState: InitialStateI = {
 };
 
 // Функция для генерации уникального ID
-const generateNodeId = () => `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateNodeId = () =>
+  `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const gptRequest = createAsyncThunk<ApiResponse, string>(
   "gptReducer/gptRequest",
@@ -69,61 +74,75 @@ const gptReducer = createSlice({
   name: "gpt",
   initialState,
   reducers: {
-    updateNode: (state, action: PayloadAction<{
-      nodeId: string;
-      updates: Partial<InputNode>;
-    }>) => {
+    updateNode: (
+      state,
+      action: PayloadAction<{
+        nodeId: string;
+        updates: Partial<InputNode>;
+      }>
+    ) => {
       if (state.data?.nodes) {
         const nodeIndex = state.data.nodes.findIndex(
-          node => node["Id узла"] === action.payload.nodeId
+          (node) => node["Id узла"] === action.payload.nodeId
         );
-        
+
         if (nodeIndex !== -1) {
           state.data.nodes[nodeIndex] = {
             ...state.data.nodes[nodeIndex],
-            ...action.payload.updates
+            ...action.payload.updates,
           };
         }
       }
     },
-    
-    addNode: (state, action: PayloadAction<{
-      nodeData: {
-        type: 'product' | 'transformation';
-        label: string;
-        description?: string;
-      };
-      parentId?: string;
-    }>) => {
+
+    addNode: (
+      state,
+      action: PayloadAction<{
+        nodeData: {
+          type: "product" | "transformation";
+          label: string;
+          description?: string;
+        };
+        parentId?: string;
+      }>
+    ) => {
       if (state.data?.nodes) {
         const { nodeData, parentId } = action.payload;
         const newNodeId = generateNodeId();
-        
+
         const newNode: InputNode = {
           "Id узла": newNodeId,
-          "Тип": nodeData.type === 'product' ? 'Продукт' : 'Преобразование',
-          "Название": nodeData.label,
-          "Описание": nodeData.description || '',
-          "Входы": [],
-          "Выходы": [],
+          Тип: nodeData.type === "product" ? "Продукт" : "Преобразование",
+          Название: nodeData.label,
+          Описание: nodeData.description || "",
+          Входы: [],
+          Выходы: [],
         };
 
         state.data.nodes.push(newNode);
 
         if (parentId) {
-          const parentNode = state.data.nodes.find(node => node["Id узла"] === parentId);
-          
+          const parentNode = state.data.nodes.find(
+            (node) => node["Id узла"] === parentId
+          );
+
           if (parentNode) {
-            if (parentNode["Тип"]?.toLowerCase().includes("продукт") && nodeData.type === 'transformation') {
+            if (
+              parentNode["Тип"]?.toLowerCase().includes("продукт") &&
+              nodeData.type === "transformation"
+            ) {
               if (!parentNode["Выходы"]) parentNode["Выходы"] = [];
               parentNode["Выходы"].push(newNodeId);
-              
+
               if (!newNode["Входы"]) newNode["Входы"] = [];
               newNode["Входы"].push(parentId);
-            } else if (parentNode["Тип"]?.toLowerCase().includes("преобразование") && nodeData.type === 'product') {
+            } else if (
+              parentNode["Тип"]?.toLowerCase().includes("преобразование") &&
+              nodeData.type === "product"
+            ) {
               if (!parentNode["Выходы"]) parentNode["Выходы"] = [];
               parentNode["Выходы"].push(newNodeId);
-              
+
               if (!newNode["Входы"]) newNode["Входы"] = [];
               newNode["Входы"].push(parentId);
             }
@@ -131,33 +150,45 @@ const gptReducer = createSlice({
         }
       }
     },
-    
+
     deleteNode: (state, action: PayloadAction<string>) => {
       if (state.data?.nodes) {
         state.data.nodes = state.data.nodes.filter(
-          node => node["Id узла"] !== action.payload
+          (node) => node["Id узла"] !== action.payload
         );
-        
-        state.data.nodes.forEach(node => {
+
+        state.data.nodes.forEach((node) => {
           if (node["Входы"] && Array.isArray(node["Входы"])) {
-            node["Входы"] = node["Входы"].filter(inputId => inputId !== action.payload);
+            node["Входы"] = node["Входы"].filter(
+              (inputId) => inputId !== action.payload
+            );
           }
           if (node["Выходы"] && Array.isArray(node["Выходы"])) {
-            node["Выходы"] = node["Выходы"].filter(outputId => outputId !== action.payload);
+            node["Выходы"] = node["Выходы"].filter(
+              (outputId) => outputId !== action.payload
+            );
           }
         });
       }
     },
-    
-    addConnection: (state, action: PayloadAction<{
-      sourceId: string;
-      targetId: string;
-    }>) => {
+
+    addConnection: (
+      state,
+      action: PayloadAction<{
+        sourceId: string;
+        targetId: string;
+      }>
+    ) => {
       if (state.data?.nodes) {
         const { sourceId, targetId } = action.payload;
-        
-        const sourceNode = state.data.nodes.find(node => node["Id узла"] === sourceId);
-        if (sourceNode && sourceNode["Тип"]?.toLowerCase().includes("преобразование")) {
+
+        const sourceNode = state.data.nodes.find(
+          (node) => node["Id узла"] === sourceId
+        );
+        if (
+          sourceNode &&
+          sourceNode["Тип"]?.toLowerCase().includes("преобразование")
+        ) {
           if (!sourceNode["Выходы"]) {
             sourceNode["Выходы"] = [];
           }
@@ -165,8 +196,10 @@ const gptReducer = createSlice({
             sourceNode["Выходы"].push(targetId);
           }
         }
-        
-        const targetNode = state.data.nodes.find(node => node["Id узла"] === targetId);
+
+        const targetNode = state.data.nodes.find(
+          (node) => node["Id узла"] === targetId
+        );
         if (targetNode) {
           if (!targetNode["Входы"]) {
             targetNode["Входы"] = [];
@@ -177,29 +210,40 @@ const gptReducer = createSlice({
         }
       }
     },
-    
-    removeConnection: (state, action: PayloadAction<{
-      sourceId: string;
-      targetId: string;
-    }>) => {
+
+    removeConnection: (
+      state,
+      action: PayloadAction<{
+        sourceId: string;
+        targetId: string;
+      }>
+    ) => {
       if (state.data?.nodes) {
         const { sourceId, targetId } = action.payload;
-        
-        const sourceNode = state.data.nodes.find(node => node["Id узла"] === sourceId);
+
+        const sourceNode = state.data.nodes.find(
+          (node) => node["Id узла"] === sourceId
+        );
         if (sourceNode && sourceNode["Выходы"]) {
-          sourceNode["Выходы"] = sourceNode["Выходы"].filter(id => id !== targetId);
+          sourceNode["Выходы"] = sourceNode["Выходы"].filter(
+            (id) => id !== targetId
+          );
         }
-        
-        const targetNode = state.data.nodes.find(node => node["Id узла"] === targetId);
+
+        const targetNode = state.data.nodes.find(
+          (node) => node["Id узла"] === targetId
+        );
         if (targetNode && targetNode["Входы"]) {
-          targetNode["Входы"] = targetNode["Входы"].filter(id => id !== sourceId);
+          targetNode["Входы"] = targetNode["Входы"].filter(
+            (id) => id !== sourceId
+          );
         }
       }
     },
-    
+
     resetToInitial: (state, action: PayloadAction<ApiResponse>) => {
       state.data = action.payload;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(gptRequest.pending, (state) => {
@@ -216,15 +260,13 @@ const gptReducer = createSlice({
   },
 });
 
-export const { 
-  updateNode, 
-  addNode, 
-  deleteNode, 
+export const {
+  updateNode,
+  addNode,
+  deleteNode,
   addConnection,
   removeConnection,
-  resetToInitial 
+  resetToInitial,
 } = gptReducer.actions;
 
 export default gptReducer.reducer;
-
-

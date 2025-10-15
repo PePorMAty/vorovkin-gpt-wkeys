@@ -15,147 +15,93 @@ export function transformApiDataToFlow(apiData: ApiResponse): {
 } {
   const nodes: CustomNode[] = [];
   const edges: CustomEdge[] = [];
-  const nodeIdMap = new Map();
-
-  console.log("🔄 Starting data transformation with:", apiData);
 
   if (!apiData?.nodes || !Array.isArray(apiData.nodes)) {
-    console.warn("❌ Invalid API data structure");
     return { nodes, edges };
   }
 
-  // Step 1: Create all nodes first
+  // Создаем узлы
   apiData.nodes.forEach((item, index) => {
-    // Use both possible ID field names
-    const nodeId = item["Id узла"] || item.Id;
+    const nodeId = item["Id узла"] || item.id;
     const nodeType = item["Тип"] || item.type;
     const nodeName = item["Название"] || item.name;
 
-    if (!nodeId) {
-      console.warn(`❌ Skipping node at index ${index} - missing ID`);
-      return;
-    }
+    if (!nodeId) return;
 
-    // Determine node type for React Flow
     const flowNodeType = String(nodeType)
       .toLowerCase()
       .includes("преобразование")
       ? "transformation"
       : "product";
 
-    const nodeData = {
-      label: String(nodeName),
-      description: String(item["Описание"] || item.description || ""),
-      originalData: item,
-    };
-
-    const node = {
+    const node: CustomNode = {
       id: String(nodeId),
       type: flowNodeType,
-      position: { x: 0, y: index * 100 }, // Temporary position
-      data: nodeData,
+      position: { x: 0, y: index * 100 },
+      data: {
+        label: String(nodeName),
+        description: String(item["Описание"] || item.description || ""),
+        originalData: item,
+      },
       draggable: true,
     };
 
     nodes.push(node);
-    nodeIdMap.set(String(nodeId), true);
-
-    console.log(`✅ Created node: ${nodeId} (${flowNodeType})`);
   });
 
-  console.log(`📊 Created ${nodes.length} nodes`);
-
-  // Step 2: Create edges based on Входы and Выходы
-  let edgesCreated = 0;
-
+  // Создаем связи
   apiData.nodes.forEach((item) => {
-    const nodeId = item["Id узла"] || item.Id;
+    const nodeId = item["Id узла"] || item.id;
     if (!nodeId) return;
 
-    const inputs = item["Входы"] || item.inputs || [];
-    const outputs = item["Выходы"] || item.outputs || [];
-
-    console.log(`🔗 Processing connections for node ${nodeId}:`, {
-      inputs,
-      outputs,
-    });
-
-    // Create edges from inputs (other nodes → this node)
+    // Входные связи
+    const inputs = item["Входы"] || [];
     if (Array.isArray(inputs)) {
       inputs.forEach((inputId, index) => {
         const sourceId = String(inputId);
         const targetId = String(nodeId);
 
-        if (nodeIdMap.has(sourceId) && nodeIdMap.has(targetId)) {
-          const edgeId = `edge-${sourceId}-${targetId}-input-${index}`;
-          // Check if edge already exists
-          const edgeExists = edges.some((e) => e.id === edgeId);
-          if (!edgeExists) {
-            const edge = {
-              id: edgeId,
-              source: sourceId,
-              target: targetId,
-              type: "smoothstep",
-              animated: false,
-              style: { stroke: "#b1b1b7", strokeWidth: 2 },
-            };
-            edges.push(edge);
-            edgesCreated++;
-            console.log(`✅ Created input edge: ${sourceId} → ${targetId}`);
-          }
-        } else {
-          console.warn(
-            `❌ Cannot create input edge: ${sourceId} → ${targetId} (nodes not found)`
-          );
+        const sourceExists = nodes.some((n) => n.id === sourceId);
+        const targetExists = nodes.some((n) => n.id === targetId);
+
+        if (sourceExists && targetExists) {
+          const edge: CustomEdge = {
+            id: `edge-${sourceId}-${targetId}-input-${index}`,
+            source: sourceId,
+            target: targetId,
+            type: "smoothstep" as const,
+            animated: false,
+            style: { stroke: "#b1b1b7", strokeWidth: 2 },
+          };
+          edges.push(edge);
         }
       });
     }
 
-    // Create edges from outputs (this node → other nodes)
+    // Выходные связи
+    const outputs = item["Выходы"] || [];
     if (Array.isArray(outputs)) {
       outputs.forEach((outputId, index) => {
         const sourceId = String(nodeId);
         const targetId = String(outputId);
 
-        if (nodeIdMap.has(sourceId) && nodeIdMap.has(targetId)) {
-          const edgeId = `edge-${sourceId}-${targetId}-output-${index}`;
-          // Check if edge already exists
-          const edgeExists = edges.some((e) => e.id === edgeId);
-          if (!edgeExists) {
-            const edge = {
-              id: edgeId,
-              source: sourceId,
-              target: targetId,
-              type: "smoothstep",
-              animated: false,
-              style: { stroke: "#b1b1b7", strokeWidth: 2 },
-            };
-            edges.push(edge);
-            edgesCreated++;
-            console.log(`✅ Created output edge: ${sourceId} → ${targetId}`);
-          }
-        } else {
-          console.warn(
-            `❌ Cannot create output edge: ${sourceId} → ${targetId} (nodes not found)`
-          );
+        const sourceExists = nodes.some((n) => n.id === sourceId);
+        const targetExists = nodes.some((n) => n.id === targetId);
+
+        if (sourceExists && targetExists) {
+          const edge: CustomEdge = {
+            id: `edge-${sourceId}-${targetId}-output-${index}`,
+            source: sourceId,
+            target: targetId,
+            type: "smoothstep" as const,
+            animated: false,
+            style: { stroke: "#b1b1b7", strokeWidth: 2 },
+          };
+          edges.push(edge);
         }
       });
     }
   });
-
-  console.log(
-    `🎉 Transformation complete: ${nodes.length} nodes, ${edgesCreated} edges`
-  );
-
-  // Log summary of created edges for debugging
-  console.log(
-    "📋 Created edges:",
-    edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-    }))
-  );
 
   return { nodes, edges };
 }

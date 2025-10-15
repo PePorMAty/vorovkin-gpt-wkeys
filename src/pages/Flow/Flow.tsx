@@ -75,6 +75,7 @@ export const Flow: React.FC = () => {
     dataProcessed,
     initialLoad,
     flowKey,
+    forceUpdateNodes,
   } = useFlowData(apiData);
 
   // Состояния для модальных окон и контекстных меню
@@ -214,9 +215,15 @@ export const Flow: React.FC = () => {
           },
         })
       );
+
+      // Принудительно обновляем узлы после сохранения
+      setTimeout(() => {
+        forceUpdateNodes();
+      }, 100);
+
       setEditingNode(null);
     }
-  }, [editingNode, dispatch]);
+  }, [editingNode, dispatch, forceUpdateNodes]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingNode(null);

@@ -257,6 +257,14 @@ export const useFlowData = (apiData?: ApiResponse | null) => {
     [setEdges]
   );
 
+  const forceUpdateNodes = useCallback(() => {
+    if (apiData) {
+      const flowData = transformApiDataToFlow(apiData);
+      setNodes(flowData.nodes);
+      setEdges(flowData.edges);
+    }
+  }, [apiData, setNodes, setEdges]);
+
   return {
     // Данные
     nodes,
@@ -273,6 +281,7 @@ export const useFlowData = (apiData?: ApiResponse | null) => {
     // Функции управления
     handleRefreshView,
     applyFlowLayout,
+    forceUpdateNodes,
 
     // Состояния
     dataProcessed: dataProcessedRef.current,

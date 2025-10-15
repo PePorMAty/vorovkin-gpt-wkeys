@@ -87,9 +87,16 @@ const gptReducer = createSlice({
         );
 
         if (nodeIndex !== -1) {
-          state.data.nodes[nodeIndex] = {
-            ...state.data.nodes[nodeIndex],
+          // Создаем новый массив узлов вместо мутации
+          const updatedNodes = [...state.data.nodes];
+          updatedNodes[nodeIndex] = {
+            ...updatedNodes[nodeIndex],
             ...action.payload.updates,
+          };
+
+          state.data = {
+            ...state.data,
+            nodes: updatedNodes,
           };
         }
       }
